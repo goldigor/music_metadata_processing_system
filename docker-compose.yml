@@ -1,0 +1,32 @@
+version: '3'
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: ./docker/postgres/Dockerfile
+    depends_on:
+      - db
+    volumes:
+      - ./:/opt:ro
+    environment:
+      - DATABASE_URL=postgresql://postgres_user:postgres_pwd@localhost:5432/music_db
+    ports:
+      - 15432:5432
+
+  db:
+      image: postgres:15-alpine
+      volumes:
+        - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+        - postgres_data:/var/lib/postgresql/data/
+      expose:
+        - 5432
+      ports:
+        - 5432:5432
+      environment:
+        - POSTGRES_USER=postgres_user
+        - POSTGRES_PASSWORD=postgres_pwd
+        - POSTGRES_DB=music_db
+
+volumes:
+      postgres_data:
