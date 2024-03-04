@@ -1,6 +1,5 @@
 import os
-import pandas as pd
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine
 from sqlalchemy.pool import QueuePool
 from functools import wraps
 from dotenv import load_dotenv
@@ -79,12 +78,6 @@ class Postgres:
         )
         return engine
 
-    def read_df(self, query):
-        df = pd.DataFrame()
-        with self.engine.connect() as conn:
-            df = pd.read_sql(text(query), con=conn)
-        return df
-
     def execute_with_params(self, query: str, fetch_result: bool, params):
         with self.engine.connect() as conn:
             if fetch_result:
@@ -130,43 +123,41 @@ class Postgres:
             generated_data = dict(zip(returning_columns, generated_data[0]))
         return generated_data
 
-    def update_db(self, data):
-        artist_ids = self.get_column_values(
-            table='artists',
-            returning_column='id',
-            condition_column='name',
-            condition_column_value=data.get('artist_name')
-        )
-        if artist_ids:
-            artist_id = artist_ids[0]
-        else:
-            generated_data = self.insert_data(
-                table='artists',
-                columns=['name'],
-                values=[(data.get('artist_name'),)],
-                returning_columns=['id']
-            )
-            artist_id = generated_data.get('id')
 
-        album_ids = self.get_column_values(
-            table='albums',
+    def get_id(self, table: str, column: str, column_value):
+        ids = self.get_column_values(
+            table=table,
             returning_column='id',
-            condition_column='title',
-            condition_column_value=data.get('album_name')
+            condition_column=column,
+            condition_column_value=column_value
         )
-        if album_ids:
-            album_id = album_ids[0]
+        if ids:
+            id = ids[0]
         else:
             generated_data = self.insert_data(
-                table='albums',
-                columns=['title'],
-                values=[(data.get('album_name'),)],
+                table=table,
+                columns=[column],
+                values=[(column_value,)],
                 returning_columns=['id']
             )
-            album_id = generated_data.get('id')
+            id = generated_data.get('id')
+        return id
+
+    def update_db(self, data):
+        artist_id = self.get_id(
+            table='artists',
+            column='name',
+            column_value=data.get('artist_name')
+        )
 
         data.pop('artist_name')
         data['artist_id'] = artist_id
+
+        album_id = self.get_id(
+            table='albums',
+            column='title',
+            column_value=data.get('album_name')
+        )
 
         data.pop('album_name')
         data['album_id'] = album_id
